@@ -33,14 +33,20 @@ fun_make <- function(
     tag_app() %>%
     ap_em_rox()
 
-  fun_code %<>% c(
-    page %>%
-      html_nodes("p") %>%
-      pluck(1)%>%
-      html_text() %>%
-      tag_app() %>%
-      ap_em_rox()
-  )
+  has_desc <- page %>%
+    html_nodes("p")
+
+  if (length(has_desc) > 0){
+    fun_code %<>% c(
+      has_desc %>%
+        pluck(1)%>%
+        html_text() %>%
+        gsub("\n", ". ", .) %>%
+        tag_app() %>%
+        ap_em_rox()
+    )
+  }
+
 
   fun_code %<>% c("#' @param token The token to connect to the app.")
 
@@ -50,7 +56,7 @@ fun_make <- function(
       ~ {
         sprintf(
           "#' @param %s %s %s",
-          ..1, ..4, ..3
+          thinkr::clean_vec(..1), ..4, ..3
         )
       }
     )
@@ -81,12 +87,12 @@ fun_make <- function(
         ){
           sprintf(
             "  %s = NULL,",
-            ..1
+            thinkr::clean_vec(..1)
           )
         } else {
           sprintf(
             "  %s,",
-            ..1
+            thinkr::clean_vec(..1)
           )
         }
 
@@ -110,7 +116,7 @@ fun_make <- function(
       ~ {
         sprintf(
           "    %s = %s,",
-          ..1, ..1
+          thinkr::clean_vec(..1), thinkr::clean_vec(..1)
         )
       }
     )
@@ -137,7 +143,7 @@ fun_make <- function(
         "res <- httr::%s(",
         method["HTTP Method"]
       ),
-      "add_headers('Content-type' = 'application/json'",
+      "add_headers('Content-type' = 'application/json',",
       "'X-Auth-Token' = tok$data$authToken,",
       "'X-User-Id' = tok$data$userId",
       "),",
@@ -172,9 +178,16 @@ fun_make <- function(
   write(fun_code, sprintf("R/%s.R", thinkr::clean_vec(title)))
 }
 
+# User Methods
 
-fun_make("https://rocket.chat/docs/developer-guides/rest-api/users/presence/")
+user_methods <- read_html("https://rocket.chat/docs/developer-guides/rest-api/users/")
+user_methods %>%
+  html_nodes("a") %>%
+  html_attr("href") %>%
+  grep("rest-api/users/.*/", ., value = TRUE) %>%
+  purrr::map(~{
+    print(.x)
+    purrr::safely(fun_make)(.x)
+  })
 
-
-#fun_make("https://rocket.chat/docs/developer-guides/rest-api/users/create/")
-
+fun_make("https://rocket.chat/docs/developer-guides/rest-api/users/forgotpassword/")
