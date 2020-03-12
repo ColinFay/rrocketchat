@@ -24,6 +24,10 @@ fun_make <- function(
     html_table() %>%
     purrr::pluck(2)
 
+  if (! "Argument" %in% names(fun_args)){
+    fun_args <- c("")
+  }
+
   title <- page %>%
     html_nodes("h1") %>%
     pluck(2) %>%
@@ -50,17 +54,20 @@ fun_make <- function(
 
   fun_code %<>% c("#' @param token The token to connect to the app.")
 
-  fun_code %<>% c(
-    purrr::pmap_chr(
-      fun_args,
-      ~ {
-        sprintf(
-          "#' @param %s %s %s",
-          thinkr::clean_vec(..1), ..4, ..3
-        )
-      }
-    )
-  ) %<>% ap_em_rox()
+  if (fun_args[1] != ""){
+    fun_code %<>% c(
+      purrr::pmap_chr(
+        fun_args,
+        ~ {
+          sprintf(
+            "#' @param %s %s %s",
+            thinkr::clean_vec(..1), ..4, ..3
+          )
+        }
+      )
+    ) %<>% ap_em_rox()
+  }
+
   fun_code %<>% c(
     tag_app("@export")
   )
@@ -71,68 +78,79 @@ fun_make <- function(
 
   )
 
-  fun_code %<>% c(
-    sprintf(
-      "%s <- function(tok,",
-      thinkr::clean_vec(title)
+  if (fun_args[1] != ""){
+    fun_code %<>% c(
+      sprintf(
+        "%s <- function(tok,",
+        thinkr::clean_vec(title)
+      )
     )
-  )
 
-  fun_code %<>% c(
-    purrr::pmap_chr(
-      fun_args,
-      ~ {
-        if (
-          grepl("Optional", ..3)
-        ){
+    fun_code %<>% c(
+      purrr::pmap_chr(
+        fun_args,
+        ~ {
+          if (
+            grepl("Optional", ..3)
+          ){
+            sprintf(
+              "  %s = NULL,",
+              thinkr::clean_vec(..1)
+            )
+          } else {
+            sprintf(
+              "  %s,",
+              thinkr::clean_vec(..1)
+            )
+          }
+
+        }
+      )
+    )
+
+    fun_code[
+      length(fun_code)
+      ] %<>% gsub(",", "", .)
+
+    fun_code %<>% c(
+      "){"
+    )
+
+    fun_code %<>% c(
+      " ",
+      "  params <- list("
+    )
+    fun_code %<>% c(
+      purrr::pmap_chr(
+        fun_args,
+        ~ {
           sprintf(
-            "  %s = NULL,",
-            thinkr::clean_vec(..1)
-          )
-        } else {
-          sprintf(
-            "  %s,",
-            thinkr::clean_vec(..1)
+            "    %s = %s,",
+            thinkr::clean_vec(..1), thinkr::clean_vec(..1)
           )
         }
-
-      }
+      )
     )
-  )
 
-  fun_code[
-    length(fun_code)
-    ] %<>% gsub(",", "", .)
+    fun_code[
+      length(fun_code)
+      ] %<>% gsub(",", "", .)
 
-  fun_code %<>% c(
-    "){",
-    " ",
-    "  params <- list("
-  )
-
-  fun_code %<>% c(
-    purrr::pmap_chr(
-      fun_args,
-      ~ {
-        sprintf(
-          "    %s = %s,",
-          thinkr::clean_vec(..1), thinkr::clean_vec(..1)
-        )
-      }
+    fun_code %<>% c(
+      ")",
+      "",
+      "params <- no_null(params)",
+      "",
+      "params <- toJSON(params, auto_unbox = TRUE)"
     )
-  )
-
-  fun_code[
-    length(fun_code)
-    ] %<>% gsub(",", "", .)
-
-  fun_code %<>% c(
-    ")",
-    "",
-    "params <- no_null(params)",
-    "",
-    "params <- toJSON(params, auto_unbox = TRUE)"
-  )
+  } else {
+    fun_code %<>% c(
+      sprintf(
+        "%s <- function(tok){",
+        thinkr::clean_vec(title)
+      )
+    )
+  }
 
   method <- page %>%
     html_table() %>%
@@ -174,20 +192,26 @@ fun_make <- function(
 
   fun_code <- styler::style_text(fun_code)
 
-  usethis::use_r(thinkr::clean_vec(title))
-  write(fun_code, sprintf("R/%s.R", thinkr::clean_vec(title)))
+  pth <- fs::path("R", thinkr::clean_vec(title), ext = "R")
+  fs::file_create(pth)
+  cli::cat_rule(
+    sprintf("Created at %s", pth)
+  )
+  write(fun_code, pth)
 }
 
 # User Methods
 
 user_methods <- read_html("https://rocket.chat/docs/developer-guides/rest-api/users/")
-user_methods %>%
+vals <- user_methods %>%
   html_nodes("a") %>%
   html_attr("href") %>%
-  grep("rest-api/users/.*/", ., value = TRUE) %>%
+  grep("rest-api/users/.*/", ., value = TRUE)
+
+res <- vals %>%
   purrr::map(~{
     print(.x)
     purrr::safely(fun_make)(.x)
-  })
+  }) %>%
+  setNames(vals)
 
-fun_make("https://rocket.chat/docs/developer-guides/rest-api/users/forgotpassword/")
