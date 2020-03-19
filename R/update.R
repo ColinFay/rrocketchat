@@ -19,7 +19,7 @@
 #' @export
 #' @importFrom httr POST GET add_headers content stop_for_status
 #' @importFrom jsonlite toJSON
-update <- function(tok,
+user_update <- function(tok,
                    userid,
                    data_email = NULL,
                    data_name = NULL,

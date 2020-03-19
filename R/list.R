@@ -9,7 +9,7 @@
 #' @export
 #' @importFrom httr POST GET add_headers content stop_for_status
 #' @importFrom jsonlite toJSON
-list <- function(tok,
+user_list <- function(tok,
                  fields = NULL,
                  query = NULL) {
   params <- list(
