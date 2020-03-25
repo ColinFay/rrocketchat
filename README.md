@@ -16,5 +16,12 @@ the API doc.
 
 All functions are still under test.
 
+## Convention
+
+All functions are prefixed with the endpoint group they refer to. For
+example, all user methods from
+<https://rocket.chat/docs/developer-guides/rest-api/users/> are prefixed
+with `users_`
+
 Function that create the R file is at
 [data-raw/DATASET.R](data-raw/DATASET.R).

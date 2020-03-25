@@ -4,8 +4,11 @@
 \alias{get_token}
 \title{Get a token}
 \usage{
-get_token(url, user = rstudioapi::showPrompt("User", "Your username"),
-  password = rstudioapi::askForPassword())
+get_token(
+  url,
+  user = rstudioapi::showPrompt("User", "Your username"),
+  password = rstudioapi::askForPassword()
+)
 }
 \arguments{
 \item{url}{url}

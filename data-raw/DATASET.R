@@ -16,8 +16,11 @@ ap_em_rox <- function(val){
 }
 
 fun_make <- function(
-  url
+  url,
+  prefix
 ){
+
+  prefix <- thinkr::clean_vec(prefix)
   page <- read_html(url)
 
   fun_args <- page %>%
@@ -81,7 +84,8 @@ fun_make <- function(
   if (fun_args[1] != ""){
     fun_code %<>% c(
       sprintf(
-        "%s <- function(tok,",
+        "%s_%s <- function(tok,",
+        prefix,
         thinkr::clean_vec(title)
       )
     )
@@ -192,26 +196,77 @@ fun_make <- function(
 
   fun_code <- styler::style_text(fun_code)
 
-  pth <- fs::path("R", thinkr::clean_vec(title), ext = "R")
-  fs::file_create(pth)
-  cli::cat_rule(
-    sprintf("Created at %s", pth)
+  #pth <- fs::path("R", , ext = "R")
+  pth <- thinkr::clean_vec(
+    sprintf(
+      "%s_%s",
+      prefix,
+      title
+    )
   )
-  write(fun_code, pth)
+
+  usethis::use_r(pth, FALSE)
+  write(fun_code, fs::path("R", pth, ext = "R"))
+  usethis::use_test(pth, FALSE)
+
+  cli::cat_rule(
+    sprintf("Created at R/%s", pth)
+  )
+
 }
 
-# User Methods
+make_all <- function(prefix){
+  url <- sprintf(
+    "https://rocket.chat/docs/developer-guides/rest-api/%s/",
+    prefix
+  )
+  cli::cat_rule(
+    sprintf(
+      "Trying %s",
+      url
+    )
+  )
+  httr::stop_for_status(
+    httr::GET(
+      url
+    )
+  )
+  user_methods <- read_html(
+    url
+  )
+  vals <- user_methods %>%
+    html_nodes("a") %>%
+    html_attr("href") %>%
+    grep(
+      sprintf(
+        "rest-api/%s/.*/",
+        prefix
+      ), ., value = TRUE)
+  vals %>%
+    purrr::map(~{
+      print(.x)
+      purrr::safely(fun_make)(.x, prefix)
+    }) %>%
+    setNames(vals)
+  cli::cat_bullet(
+    "Done",
+    bullet = "tick"
+  )
+}
 
-user_methods <- read_html("https://rocket.chat/docs/developer-guides/rest-api/users/")
-vals <- user_methods %>%
-  html_nodes("a") %>%
-  html_attr("href") %>%
-  grep("rest-api/users/.*/", ., value = TRUE)
+h3 <- read_html(
+  "https://rocket.chat/docs/developer-guides/rest-api/"
+) %>%
+  html_nodes('h3') %>%
+  html_text() %>% .[1:25] %>%
+  tolower() %>%
+  gsub(" ", "-", .) %>%
+  gsub("miscellaneous-information", "miscellaneous", .)
 
-res <- vals %>%
-  purrr::map(~{
-    print(.x)
-    purrr::safely(fun_make)(.x)
-  }) %>%
-  setNames(vals)
+for (i in h3){
+  purrr::safely(
+    make_all
+  )(i)
+}
 
+devtools::document()
